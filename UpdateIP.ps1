@@ -1,13 +1,16 @@
+Param(
+  [string]$user,
+  [string]$pass,
+  [string]$hn
+)
 
-function logger($augs)
+function logger($log)
 {
-  Out-File -filepath c:\Temp\DynamicDNS.txt -inputobject $augs -encoding ASCII -width 160 -Append
+  Out-File -filepath c:\Temp\DynamicDNS.txt -inputobject $log -encoding ASCII -width 160 -Append
+  Write-Host $log
 }
 
  $ip = (curl icanhazip.com/s).Content
- $user = ""
- $pass = ""
- $hn = ""
 
 $pair = "${user}:${pass}"
 $bytes = [System.Text.Encoding]::ASCII.GetBytes($pair)
