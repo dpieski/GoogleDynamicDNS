@@ -1,4 +1,6 @@
 # GoogleDynamicDNS
 This updates the Google Domains Dynamic DNS IP.
 
-At the top, you will need to insert your Username, Password, and Hostname in their respective locations.
+You will need to insert your Username, Password, and Hostname in their respective locations.
+
+Once you click 'Add' it should update the information under the Dynamic DNS Synthetic Record.
