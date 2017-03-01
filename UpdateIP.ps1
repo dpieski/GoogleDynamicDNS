@@ -10,7 +10,7 @@ function logger($log)
   Write-Host $log
 }
 
- $ip = (curl icanhazip.com/s).Content
+ $ip = (curl ipv4.icanhazip.com).Content
 
 $pair = "${user}:${pass}"
 $bytes = [System.Text.Encoding]::ASCII.GetBytes($pair)
