@@ -1,5 +1,7 @@
-﻿Imports System.IO
+﻿Imports System.Data.SQLite
+Imports System.IO
 Imports System.Net
+Imports System.Security.Cryptography
 Imports System.Text
 
 Public Class MainForm
@@ -37,7 +39,7 @@ Public Class MainForm
         Dim wHeader As WebHeaderCollection = New WebHeaderCollection()
         wHeader.Clear()
 
-        Dim sUrl As String = "http://www.icanhazip.com"
+        Dim sUrl As String = "http://ipv4.icanhazip.com"
         Dim wRequest As HttpWebRequest = DirectCast(System.Net.HttpWebRequest.Create(sUrl), HttpWebRequest)
         wRequest.Headers = wHeader
         wRequest.Method = "GET"
@@ -70,6 +72,8 @@ Public Class MainForm
         host.pass = txtPassword.Text
         host.username = txtUserName.Text
         host.ipAddress = GetCurrentIPAddress()
+        MakeDatabase()
+        MsgBox(InsertIntoHost(host))
         UpdateGDNS(host)
     End Sub
 
@@ -138,4 +142,81 @@ Public Class MainForm
                 log("An error happened on Google's end. Please wait 5 min. ")
         End Select
     End Sub
+
+    Private Function Encrypt(clearText As String) As String
+        Dim EncryptionKey As String = "MAKV2SPBNI99212"
+        Dim clearBytes As Byte() = Encoding.Unicode.GetBytes(clearText)
+        Using encryptor As Aes = Aes.Create()
+            Dim pdb As New Rfc2898DeriveBytes(EncryptionKey, New Byte() {&H49, &H76, &H61, &H6E, &H20, &H4D,
+             &H65, &H64, &H76, &H65, &H64, &H65,
+             &H76})
+            encryptor.Key = pdb.GetBytes(32)
+            encryptor.IV = pdb.GetBytes(16)
+            Using ms As New MemoryStream()
+                Using cs As New CryptoStream(ms, encryptor.CreateEncryptor(), CryptoStreamMode.Write)
+                    cs.Write(clearBytes, 0, clearBytes.Length)
+                    cs.Close()
+                End Using
+                clearText = Convert.ToBase64String(ms.ToArray())
+            End Using
+        End Using
+        Return clearText
+    End Function
+
+    Private Function Decrypt(cipherText As String) As String
+        Dim EncryptionKey As String = "MAKV2SPBNI99212"
+        Dim cipherBytes As Byte() = Convert.FromBase64String(cipherText)
+        Using encryptor As Aes = Aes.Create()
+            Dim pdb As New Rfc2898DeriveBytes(EncryptionKey, New Byte() {&H49, &H76, &H61, &H6E, &H20, &H4D,
+             &H65, &H64, &H76, &H65, &H64, &H65,
+             &H76})
+            encryptor.Key = pdb.GetBytes(32)
+            encryptor.IV = pdb.GetBytes(16)
+            Using ms As New MemoryStream()
+                Using cs As New CryptoStream(ms, encryptor.CreateDecryptor(), CryptoStreamMode.Write)
+                    cs.Write(cipherBytes, 0, cipherBytes.Length)
+                    cs.Close()
+                End Using
+                cipherText = Encoding.Unicode.GetString(ms.ToArray())
+            End Using
+        End Using
+        Return cipherText
+    End Function
+
+    Private Sub MakeDatabase()
+        Dim appPath As String = My.Application.Info.DirectoryPath
+        Dim dbPath = appPath & "\gDDNS.sql3"
+        If Not File.Exists(dbPath) Then
+            SQLiteConnection.CreateFile(dbPath)
+            Dim Connection As New SQLiteConnection
+            Using Query As New SQLiteCommand()
+                Connection.ConnectionString = "Data Source=" & dbPath & ";Version=3;New=False;Compress=True;"
+                Connection.Open()
+                With Query
+                    .Connection = Connection
+                    .CommandText = "CREATE TABLE Hosts(ID INTEGER PRIMARY KEY ASC, UserName VARCHAR(25)," &
+                                   "Pass NVARCHAR(200), HostName VARCHAR(50), ipAddress VARCHAR(15), updateDTS DATETIME)"
+                End With
+                Query.ExecuteNonQuery()
+                Connection.Close()
+            End Using
+        End If
+    End Sub
+
+    Private Function InsertIntoHost(ByRef host As Models.Host) As String
+        Dim appPath As String = My.Application.Info.DirectoryPath
+        Dim dbPath = appPath & "\gDDNS.sql3"
+        Dim res As String = ""
+
+        Dim dbConnection As New SQLiteConnection("Data Source=" + dbPath + ";Version=3;")
+        Dim strSQL = "insert into Hosts(UserName, Pass, HostName, ipAddress, updateDTS) " &
+                     "values(""" & host.username & """, """ & host.pass & """, """ & host.HostName &
+                     """, """ & host.ipAddress.Substring(0, host.ipAddress.Count - 1) & """, """ & Date.Now.ToString("yyyy-mm-dd hh:mm:ss") & """)"
+        Dim command As New SQLiteCommand(strSQL, dbConnection) 'Create a SQLite command which accepts the query And database connection.
+        dbConnection.Open() 'Open the connection With database
+        res = command.ExecuteNonQuery() 'Executes the SQL query
+        dbConnection.Close() 'Close the connection With database
+
+        Return res
+    End Function
 End Class
